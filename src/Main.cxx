@@ -3,6 +3,7 @@
 // author: Max Kellermann <mk@cm4all.com>
 
 #include "io/DirectoryReader.hxx"
+#include "io/StateDirectories.hxx"
 #include "io/UniqueFileDescriptor.hxx"
 #include "util/IterableSplitString.hxx"
 #include "util/PrintException.hxx"
@@ -251,6 +252,29 @@ Dump(std::span<const char *const> args)
 	Dump(path, root);
 }
 
+static void
+Get(std::span<const char *const> args)
+{
+	if (args.empty())
+		throw "Not enough parameters";
+
+	if (args.size() > 1)
+		throw "Too many parameters";
+
+	const char *const path = args.front();
+
+	StateDirectories state_directories;
+
+	std::byte buffer[4096];
+
+	const auto value = state_directories.GetBinary(path, buffer);
+	if (value.data() == nullptr)
+		throw "Not found";
+
+	const auto text = Strip(ToStringView(value));
+	fmt::print("{}\n", text);
+}
+
 int
 main(int argc, char **argv)
 try {
@@ -258,6 +282,7 @@ try {
 		fmt::print(stderr, "Usage: {} COMMAND [OPTIONS]\n"
 			   "\n"
 			   "Commands:\n"
+			   "  get PATH\n"
 			   "  dump\n"
 			   "\n", argv[0]);
 		return EXIT_FAILURE;
@@ -268,6 +293,8 @@ try {
 
 	if (StringIsEqual(command, "dump")) {
 		Dump(args);
+	} else if (StringIsEqual(command, "get")) {
+		Get(args);
 	} else {
 		fmt::print(stderr, "Unknown command: {:?}\n", command);
 		return EXIT_FAILURE;
