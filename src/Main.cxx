@@ -252,7 +252,11 @@ int
 main(int argc, char **argv)
 try {
 	if (argc < 2) {
-		fmt::print(stderr, "Usage: {} COMMAND [OPTIONS]\n", argv[0]);
+		fmt::print(stderr, "Usage: {} COMMAND [OPTIONS]\n"
+			   "\n"
+			   "Commands:\n"
+			   "  dump\n"
+			   "\n", argv[0]);
 		return EXIT_FAILURE;
 	}
 
