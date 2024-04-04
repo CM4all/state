@@ -1,0 +1,10 @@
+/.debhelper/
+/*.debhelper
+/*.debhelper.log
+/*.substvars
+/*-stamp
+/files
+
+/tmp/
+
+/cm4all-*/
