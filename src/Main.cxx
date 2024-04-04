@@ -229,8 +229,11 @@ Dump(std::string &path, const StateTreeNode &node) noexcept
 }
 
 static void
-Dump()
+Dump(std::span<const char *const> args)
 {
+	if (!args.empty())
+		throw "Too many parameters";
+
 	StateTreeNode root{nullptr};
 
 	for (const auto &i : directories) {
@@ -261,8 +264,10 @@ try {
 	}
 
 	const char *const command = argv[1];
+	std::span<const char *const> args{argv + 2, static_cast<std::size_t>(argc - 2)};
+
 	if (StringIsEqual(command, "dump")) {
-		Dump();
+		Dump(args);
 	} else {
 		fmt::print(stderr, "Unknown command: {:?}\n", command);
 		return EXIT_FAILURE;
