@@ -35,7 +35,7 @@ static constexpr StateDirectory directories[] = {
 struct StateTreeNode {
 	const char *source;
 
-	std::map<std::string, StateTreeNode> children;
+	std::map<std::string, StateTreeNode, std::less<>> children;
 
 	std::string value;
 };
