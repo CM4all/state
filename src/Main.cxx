@@ -79,8 +79,11 @@ LoadDirectory(const char *source, UniqueFileDescriptor _directory_fd, StateTreeN
 		child_node.source = source;
 
 		if (S_ISDIR(stx.stx_mode)) {
+			child_node.value.clear();
+
 			LoadDirectory(source, std::move(fd), child_node);
 		} else if (S_ISREG(stx.stx_mode)) {
+			child_node.children.clear();
 			child_node.value.clear();
 
 			if (stx.stx_size > 0) {
