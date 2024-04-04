@@ -105,7 +105,7 @@ static void
 Dump(std::string &path, const StateTreeNode &node) noexcept
 {
 	if (!node.value.empty()) {
-		fmt::print("{}{} {:?}\n", node.source, path, node.value);
+		fmt::print("{} [{}] {:?}\n", path, node.source, node.value);
 		return;
 	}
 
