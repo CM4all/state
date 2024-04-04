@@ -33,11 +33,16 @@ static constexpr StateDirectory directories[] = {
 };
 
 struct StateTreeNode {
+	StateTreeNode *const parent;
+
 	const char *source;
 
 	std::map<std::string, StateTreeNode, std::less<>> children;
 
 	std::string value;
+
+	explicit StateTreeNode(StateTreeNode *_parent) noexcept
+		:parent(_parent) {}
 };
 
 static bool
@@ -74,7 +79,9 @@ LoadDirectory(const char *source, UniqueFileDescriptor _directory_fd, StateTreeN
 			continue;
 		}
 
-		auto [it, inserted] = directory_node.children.try_emplace(name);
+		auto [it, inserted] =
+			directory_node.children.try_emplace(name,
+							    &directory_node);
 		auto &child_node = it->second;
 		child_node.source = source;
 
@@ -125,7 +132,7 @@ Dump(std::string &path, const StateTreeNode &node) noexcept
 static void
 Dump()
 {
-	StateTreeNode root;
+	StateTreeNode root{nullptr};
 
 	for (const auto &i : directories) {
 		UniqueFileDescriptor fd;
