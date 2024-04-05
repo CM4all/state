@@ -216,17 +216,16 @@ Dump(std::string &path, const StateTreeNode &node) noexcept
 		return;
 	}
 
+	if (!path.empty()) 
+		path.push_back('/');
+
 	const std::size_t path_length = path.length();
-	path.push_back('/');
 
 	for (const auto &[name, child] : node.children) {
-		path.erase(path_length + 1);
 		path.append(name);
-
 		Dump(path, child);
+		path.erase(path_length);
 	}
-
-	path.erase(path_length);
 }
 
 static void
