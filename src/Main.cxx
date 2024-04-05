@@ -261,6 +261,8 @@ Get(std::span<const char *const> args)
 		throw "Too many parameters";
 
 	const char *const path = args.front();
+	if (*path == '\0' || *path == '/')
+		throw "Bad path";
 
 	StateDirectories state_directories;
 
