@@ -370,6 +370,82 @@ Set(std::span<const char *const> args)
 	w.Commit();
 }
 
+/**
+ * Throws on error.
+ *
+ * @return false if the function knows that the given #directory_fd is
+ * not empty
+ */
+static bool
+DoUnset(FileDescriptor directory_fd, std::string_view relative_path)
+{
+	const auto [_subdirectory_name, rest] = Split(relative_path, '/');
+	const std::string subdirectory_name{_subdirectory_name};
+
+	if (rest.data() == nullptr) {
+		if (unlinkat(directory_fd.Get(), subdirectory_name.c_str(), 0) == 0)
+			return true;
+
+		const int e = errno;
+		if (e == ENOENT)
+			return true;
+
+		throw FmtErrno("Failed to delete {:?}", subdirectory_name);
+	} else {
+		if (UniqueFileDescriptor fd;
+		    fd.Open(directory_fd, subdirectory_name.c_str(), O_PATH|O_DIRECTORY|O_NOFOLLOW)) {
+			if (!DoUnset(fd, rest))
+				return false;
+
+			if (unlinkat(directory_fd.Get(), subdirectory_name.c_str(),
+				     AT_REMOVEDIR) == 0)
+				return true;
+
+			const int e = errno;
+			if (e == ENOENT)
+				return true;
+			else if (e == ENOTEMPTY)
+				return false;
+			else
+				throw FmtErrno("Failed to delete {:?}", subdirectory_name);
+		} else {
+			const int e = errno;
+			if (e == ENOENT || e == ELOOP || e == ENOTDIR)
+				return false;
+			else
+				throw FmtErrno("Failed to open {:?}", subdirectory_name);
+		}
+	}
+}
+
+static void
+Unset(std::span<const char *const> args)
+{
+	if (args.size() < 2)
+		throw "Not enough parameters";
+
+	if (args.size() > 2)
+		throw "Too many parameters";
+
+	const char *base_path = args[0];
+	if (StringIsEqual(base_path, "--var"))
+		base_path = "/var/lib/cm4all/state";
+	else if (StringIsEqual(base_path, "--etc"))
+		base_path = "/etc/cm4all/state";
+	else if (StringIsEqual(base_path, "--run"))
+		base_path = "/run/cm4all/state";
+	else
+		throw "No base directory specified";
+
+	const std::string_view relative_path = args[1];
+
+	if (relative_path.empty() || relative_path.starts_with('/'))
+		throw "Bad path";
+
+	const auto base_fd = OpenPath(FileDescriptor::Undefined(), base_path, O_DIRECTORY);
+	DoUnset(base_fd, relative_path);
+}
+
 int
 main(int argc, char **argv)
 try {
@@ -379,6 +455,7 @@ try {
 			   "Commands:\n"
 			   "  get PATH\n"
 			   "  set {{--var|--etc|--run}} PATH VALUE\n"
+			   "  unset {{--var|--etc|--run}} PATH\n"
 			   "  dump\n"
 			   "\n", argv[0]);
 		return EXIT_FAILURE;
@@ -393,6 +470,8 @@ try {
 		Get(args);
 	} else if (StringIsEqual(command, "set")) {
 		Set(args);
+	} else if (StringIsEqual(command, "unset")) {
+		Unset(args);
 	} else {
 		fmt::print(stderr, "Unknown command: {:?}\n", command);
 		return EXIT_FAILURE;
