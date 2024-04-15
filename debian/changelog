@@ -1,5 +1,6 @@
 cm4all-state (0.2) unstable; urgency=low
 
+  * fix symlink bug
   * suppress bogus ELOOP error messages
   * add command "set"
 
