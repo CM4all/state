@@ -140,6 +140,7 @@ LoadDirectory(const char *source, UniqueFileDescriptor _directory_fd, StateTreeN
 				child_node.target = target;
 				child_node.children.clear();
 				child_node.value.clear();
+				continue;
 			}
 
 			fmt::print(stderr, "Failed to open {:?}: {}\n",
