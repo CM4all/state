@@ -1,6 +1,7 @@
 cm4all-state (0.2) unstable; urgency=low
 
   * suppress bogus ELOOP error messages
+  * add command "set"
 
  --   
 

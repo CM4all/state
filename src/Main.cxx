@@ -2,13 +2,17 @@
 // Copyright CM4all GmbH
 // author: Max Kellermann <mk@cm4all.com>
 
+#include "lib/fmt/SystemError.hxx"
 #include "io/DirectoryReader.hxx"
+#include "io/FileWriter.hxx"
+#include "io/Open.hxx"
 #include "io/StateDirectories.hxx"
 #include "io/UniqueFileDescriptor.hxx"
 #include "util/IterableSplitString.hxx"
 #include "util/PrintException.hxx"
 #include "util/SpanCast.hxx"
 #include "util/StringAPI.hxx"
+#include "util/StringSplit.hxx"
 #include "util/StringStrip.hxx"
 
 #include <fmt/core.h>
@@ -277,6 +281,95 @@ Get(std::span<const char *const> args)
 	fmt::print("{}\n", text);
 }
 
+static UniqueFileDescriptor
+MakeSubdirectory(UniqueFileDescriptor parent_fd, const char *name)
+{
+	UniqueFileDescriptor fd;
+	if (fd.Open(parent_fd, name, O_PATH|O_DIRECTORY|O_NOFOLLOW))
+		return fd;
+
+	int e = errno;
+	if (e == ENOENT) {
+		if (mkdirat(parent_fd.Get(), name, 0777) < 0) {
+			e = errno;
+			if (e != EEXIST)
+				throw FmtErrno(e, "Failed to create directory {:?}", name);
+		}
+
+		if (fd.Open(parent_fd, name, O_PATH|O_DIRECTORY|O_NOFOLLOW))
+			return fd;
+
+		e = errno;
+	} else if (e == ELOOP || e == ENOTDIR) {
+		if (unlinkat(parent_fd.Get(), name, 0) < 0) {
+			e = errno;
+			if (e != ENOENT)
+				throw FmtErrno(e, "Failed to delete symlink {:?}", name);
+		}
+
+		if (mkdirat(parent_fd.Get(), name, 0777) < 0) {
+			e = errno;
+			if (e != EEXIST)
+				throw FmtErrno(e, "Failed to create directory {:?}", name);
+		}
+
+		if (fd.Open(parent_fd, name, O_PATH|O_DIRECTORY|O_NOFOLLOW))
+			return fd;
+
+		e = errno;
+	}
+
+	throw FmtErrno(e, "Failed to open directory {:?}", name);
+}
+
+static UniqueFileDescriptor
+MakeSubdirectories(UniqueFileDescriptor fd, std::string_view relative_path)
+{
+	for (const std::string_view name : IterableSplitString(relative_path, '/'))
+		fd = MakeSubdirectory(std::move(fd), std::string{name}.c_str());
+
+	return fd;
+}
+
+static void
+Set(std::span<const char *const> args)
+{
+	if (args.size() < 3)
+		throw "Not enough parameters";
+
+	if (args.size() > 3)
+		throw "Too many parameters";
+
+	const char *base_path = args[0];
+	if (StringIsEqual(base_path, "--var"))
+		base_path = "/var/lib/cm4all/state";
+	else if (StringIsEqual(base_path, "--etc"))
+		base_path = "/etc/cm4all/state";
+	else if (StringIsEqual(base_path, "--run"))
+		base_path = "/run/cm4all/state";
+	else
+		throw "No base directory specified";
+
+	const char *const relative_path = args[1];
+	const std::string_view value = args[2];
+
+	if (*relative_path == '\0' || *relative_path == '/')
+		throw "Bad path";
+
+	const char *const slash = strrchr(relative_path, '/');
+	const std::string_view directory_path{relative_path, slash};
+	const char *const filename = slash + 1;
+
+	if (*filename == '\0')
+		throw "Bad path";
+
+	auto directory_fd = MakeSubdirectories(OpenPath(FileDescriptor::Undefined(), base_path, O_DIRECTORY),
+					       directory_path);
+	FileWriter w{directory_fd, filename};
+	w.Write(AsBytes(value));
+	w.Commit();
+}
+
 int
 main(int argc, char **argv)
 try {
@@ -285,6 +378,7 @@ try {
 			   "\n"
 			   "Commands:\n"
 			   "  get PATH\n"
+			   "  set {{--var|--etc|--run}} PATH VALUE\n"
 			   "  dump\n"
 			   "\n", argv[0]);
 		return EXIT_FAILURE;
@@ -297,6 +391,8 @@ try {
 		Dump(args);
 	} else if (StringIsEqual(command, "get")) {
 		Get(args);
+	} else if (StringIsEqual(command, "set")) {
+		Set(args);
 	} else {
 		fmt::print(stderr, "Unknown command: {:?}\n", command);
 		return EXIT_FAILURE;
