@@ -1,4 +1,4 @@
-project('CM4all State', 'cpp', version: '0.3',
+project('CM4all State', 'cpp', version: '0.4',
   meson_version: '>= 1.2',
   default_options: [
     'cpp_std=c++23',
