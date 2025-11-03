@@ -358,6 +358,9 @@ Set(std::span<const char *const> args)
 		throw "Bad path";
 
 	const char *const slash = strrchr(relative_path, '/');
+	if (slash == nullptr)
+		throw "Cannot set top-level paths";
+
 	const std::string_view directory_path{relative_path, slash};
 	const char *const filename = slash + 1;
 
