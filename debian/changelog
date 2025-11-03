@@ -1,5 +1,6 @@
 cm4all-state (0.3) unstable; urgency=low
 
+  * switch to C++23
   * require Meson 1.2
 
  --   
