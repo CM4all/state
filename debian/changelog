@@ -1,6 +1,6 @@
 cm4all-state (0.3) unstable; urgency=low
 
-  * 
+  * require Meson 1.2
 
  --   
 
