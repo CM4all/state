@@ -4,6 +4,7 @@
 
 #include "lib/fmt/SystemError.hxx"
 #include "io/DirectoryReader.hxx"
+#include "io/FileAt.hxx"
 #include "io/FileWriter.hxx"
 #include "io/Open.hxx"
 #include "io/StateDirectories.hxx"
@@ -121,7 +122,7 @@ LoadDirectory(const char *source, UniqueFileDescriptor _directory_fd, StateTreeN
 		UniqueFileDescriptor fd;
 		/* optimistic open() - this works for regular files
 		   and directories */
-		if (!fd.Open(directory_fd, name, O_RDONLY|O_NOFOLLOW)) {
+		if (!fd.Open({directory_fd, name}, O_RDONLY|O_NOFOLLOW)) {
 			if (errno == ELOOP) {
 				char target[4096];
 				if (auto nbytes = readlinkat(directory_fd.Get(), name,
@@ -285,7 +286,7 @@ static UniqueFileDescriptor
 MakeSubdirectory(UniqueFileDescriptor parent_fd, const char *name)
 {
 	UniqueFileDescriptor fd;
-	if (fd.Open(parent_fd, name, O_PATH|O_DIRECTORY|O_NOFOLLOW))
+	if (fd.Open({parent_fd, name}, O_PATH|O_DIRECTORY|O_NOFOLLOW))
 		return fd;
 
 	int e = errno;
@@ -296,7 +297,7 @@ MakeSubdirectory(UniqueFileDescriptor parent_fd, const char *name)
 				throw FmtErrno(e, "Failed to create directory {:?}", name);
 		}
 
-		if (fd.Open(parent_fd, name, O_PATH|O_DIRECTORY|O_NOFOLLOW))
+		if (fd.Open({parent_fd, name}, O_PATH|O_DIRECTORY|O_NOFOLLOW))
 			return fd;
 
 		e = errno;
@@ -313,7 +314,7 @@ MakeSubdirectory(UniqueFileDescriptor parent_fd, const char *name)
 				throw FmtErrno(e, "Failed to create directory {:?}", name);
 		}
 
-		if (fd.Open(parent_fd, name, O_PATH|O_DIRECTORY|O_NOFOLLOW))
+		if (fd.Open({parent_fd, name}, O_PATH|O_DIRECTORY|O_NOFOLLOW))
 			return fd;
 
 		e = errno;
@@ -363,9 +364,9 @@ Set(std::span<const char *const> args)
 	if (*filename == '\0')
 		throw "Bad path";
 
-	auto directory_fd = MakeSubdirectories(OpenPath(FileDescriptor::Undefined(), base_path, O_DIRECTORY),
+	auto directory_fd = MakeSubdirectories(OpenPath({FileDescriptor::Undefined(), base_path}, O_DIRECTORY),
 					       directory_path);
-	FileWriter w{directory_fd, filename};
+	FileWriter w{{directory_fd, filename}};
 	w.Write(AsBytes(value));
 	w.Commit();
 }
@@ -393,7 +394,7 @@ DoUnset(FileDescriptor directory_fd, std::string_view relative_path)
 		throw FmtErrno("Failed to delete {:?}", subdirectory_name);
 	} else {
 		if (UniqueFileDescriptor fd;
-		    fd.Open(directory_fd, subdirectory_name.c_str(), O_PATH|O_DIRECTORY|O_NOFOLLOW)) {
+		    fd.Open({directory_fd, subdirectory_name.c_str()}, O_PATH|O_DIRECTORY|O_NOFOLLOW)) {
 			if (!DoUnset(fd, rest))
 				return false;
 
@@ -442,7 +443,7 @@ Unset(std::span<const char *const> args)
 	if (relative_path.empty() || relative_path.starts_with('/'))
 		throw "Bad path";
 
-	const auto base_fd = OpenPath(FileDescriptor::Undefined(), base_path, O_DIRECTORY);
+	const auto base_fd = OpenPath({FileDescriptor::Undefined(), base_path}, O_DIRECTORY);
 	DoUnset(base_fd, relative_path);
 }
 
