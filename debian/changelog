@@ -4,7 +4,7 @@ cm4all-state (0.3) unstable; urgency=low
   * switch to C++23
   * require Meson 1.2
 
- --   
+ -- Max Kellermann <mk@cm4all.com>  Mon, 03 Nov 2025 12:21:43 +0100
 
 cm4all-state (0.2) unstable; urgency=low
 
